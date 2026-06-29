@@ -1,0 +1,7 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+
+# generated from sample_sales.csv
+sample_sales.db

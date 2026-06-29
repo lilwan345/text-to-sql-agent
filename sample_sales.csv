@@ -1,0 +1,21 @@
+order_id,order_date,region,product,category,quantity,unit_price
+1001,2025-01-05,West,Wireless Mouse,Accessories,3,24.99
+1002,2025-01-07,East,Mechanical Keyboard,Accessories,1,89.00
+1003,2025-01-11,West,27-inch Monitor,Displays,2,219.50
+1004,2025-01-15,North,USB-C Hub,Accessories,5,39.95
+1005,2025-01-22,South,Laptop Stand,Accessories,4,32.00
+1006,2025-02-03,East,27-inch Monitor,Displays,1,219.50
+1007,2025-02-09,West,Mechanical Keyboard,Accessories,2,89.00
+1008,2025-02-14,North,Webcam 1080p,Peripherals,3,54.99
+1009,2025-02-20,South,Wireless Mouse,Accessories,6,24.99
+1010,2025-03-01,East,Laptop Stand,Accessories,2,32.00
+1011,2025-03-08,West,Webcam 1080p,Peripherals,1,54.99
+1012,2025-03-15,North,27-inch Monitor,Displays,3,219.50
+1013,2025-03-19,South,USB-C Hub,Accessories,4,39.95
+1014,2025-03-27,East,Mechanical Keyboard,Accessories,5,89.00
+1015,2025-04-02,West,34-inch Ultrawide,Displays,1,399.00
+1016,2025-04-10,North,Wireless Mouse,Accessories,8,24.99
+1017,2025-04-18,South,Webcam 1080p,Peripherals,2,54.99
+1018,2025-04-25,East,34-inch Ultrawide,Displays,2,399.00
+1019,2025-05-04,West,USB-C Hub,Accessories,3,39.95
+1020,2025-05-12,North,Laptop Stand,Accessories,6,32.00
