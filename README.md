@@ -1,103 +1,113 @@
 # Text-to-SQL Agent
 
-Ask questions about a SQL database in plain English. The agent injects the
-database schema into the prompt, lets Claude write SQL via tool-calling,
-executes it read-only, and feeds any error back so the model can fix its own
-query and retry. Built on the Anthropic Messages API.
+A small project I built to learn how AI agents actually work. You ask a
+question in plain English, and it writes the SQL, runs it, and tells you the
+answer. If the SQL is wrong, it reads the error and fixes it itself.
+
+I'm a business student who's comfortable with SQL, so I wanted to see what it
+takes to put an LLM in front of a database instead of writing every query by
+hand.
+
+## What it does
 
 ```
-natural-language question
-  -> inject the database schema into the prompt
-  -> Claude writes SQL and calls the run_sql tool
-  -> execute the SQL (read-only) against the database
-  -> hand the result (or the error) back to Claude
-  -> on error, Claude reads it, rewrites the SQL, and retries
-  -> Claude writes a plain-English answer
-  -> a second model pass self-checks the SQL against the question
+You ask: "Which genre has the most tracks?"
+  -> the agent gets the database structure (table and column names)
+  -> Claude writes the SQL and asks to run it
+  -> the code runs it on the database (read-only)
+  -> if it errors, the error goes back to Claude and it tries again
+  -> you get a plain-English answer
 ```
 
-The retry loop is what makes this "agentic": the code never parses SQL or
-decides when to stop. Claude does, by choosing whether to call the tool again
-or to finish.
+The part I think is cool: I don't parse the SQL or decide when to stop. Claude
+does that itself by choosing whether to run another query or just answer. That's
+what makes it an "agent" and not just one API call.
 
-## Features
+## Things I added while learning
 
-- **Tool-calling loop** — one `run_sql` tool; the model decides when to query and when it's done.
-- **Read-only by design (two layers)** — a keyword/`;`-chaining guard rejects anything that isn't a single `SELECT`/`WITH`, and the database is opened in SQLite read-only mode (`mode=ro`). Defense in depth.
-- **Self-correction** — execution errors are returned to the model as tool results, so it rewrites and retries instead of failing.
-- **Self-check pass** — an LLM-as-judge second call reviews the SQL against the question and flags risky answers (e.g. reading a trend into noise).
-- **Transient-error retry** — exponential backoff on 429/529/5xx and dropped connections.
-- **Conversation memory** — follow-up questions keep context; `clear` wipes it.
-- **Swap databases without editing code** — pass the `.db` path on the command line.
+- **It can only read, never change the data.** I check the query is a plain
+  `SELECT` before running it, and I also open the database in read-only mode so
+  even if something slips past my check, SQLite blocks it. (Two checks because I
+  didn't fully trust my first one.)
+- **It fixes its own mistakes.** When a query errors, I send the error message
+  back to the model so it can rewrite the SQL instead of just crashing.
+- **A second "double-check" pass.** After it answers, I make one more call that
+  looks at the question + the SQL and flags it if something seems off. It
+  doesn't catch everything, but it turns a silently-wrong answer into one with a
+  warning.
+- **It retries when Anthropic's servers are busy** (I kept hitting "overloaded"
+  errors, so I added a wait-and-retry).
+- **It remembers the conversation**, so you can ask follow-ups. Type `clear` to
+  start over.
 
-## Setup
+## How to run it
 
 ```bash
 python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 
-cp .env.example .env        # then paste your Anthropic API key into .env
+cp .env.example .env        # paste your Anthropic API key into .env
 ```
 
-Get a key at https://console.anthropic.com. The `.env` file is gitignored and
-never committed.
+Get a key at https://console.anthropic.com. The `.env` file is gitignored so
+the key never ends up on GitHub.
 
-## Usage
-
-Run against the bundled Chinook sample database:
+Then:
 
 ```bash
 ./.venv/bin/python agent.py
 ```
 
-Then ask questions in plain English:
+It comes with the Chinook sample database (a fake music store), so you can ask
+things like:
 
 ```
-Question > Which genre has the most tracks?
+Question > How many customers are from the USA?
 Question > What is the total revenue from the Rock genre?
 ```
 
 Commands: `clear` (forget the conversation), `verify on` / `verify off`
-(toggle the self-check), `quit`.
+(turn the double-check on/off), `quit`.
 
-### Use your own CSV
+### Trying it on your own CSV
 
-No code changes needed — convert the CSV to SQLite, then pass it on the
-command line:
+You don't have to touch the code. Turn the CSV into a database file, then point
+the agent at it:
 
 ```bash
-./.venv/bin/python csv_to_db.py mydata.csv   # creates mydata.db
+./.venv/bin/python csv_to_db.py mydata.csv   # makes mydata.db
 ./.venv/bin/python agent.py mydata.db
 ```
 
-## Testing
+## Testing how good it actually is
 
-Two test scripts measure accuracy against answers computed directly from the
-database (ground truth):
+I didn't want to just trust that it works, so I wrote two test scripts. I
+computed the correct answers myself by querying the database directly, then
+checked the agent against them.
 
-- `test_accuracy.py` — 10 questions from single-table counts to 4-table joins.
-- `test_adversarial.py` — 8 "tricky" questions probing failure modes: synonym
-  traps (length vs price), temporal filters, NULLs, empty results, multi-step
-  aggregation, and ambiguous metrics.
+- `test_accuracy.py` — 10 normal questions, from simple counts up to joins
+  across 4 tables.
+- `test_adversarial.py` — 8 tricky ones meant to trip it up (e.g. "longest
+  track" where it has to use duration not price, a question about a country with
+  no data, and vague questions like "who's the best employee?").
 
-```bash
-./.venv/bin/python test_accuracy.py
-./.venv/bin/python test_adversarial.py
-```
+It got all 10 normal ones right and the SQL on all 8 tricky ones too. But the
+tricky set showed a real weakness: when a question is vague ("best-selling
+artist" — by number sold or by money?), it just quietly picks one and answers
+confidently instead of saying which one it chose or asking. For a real BI tool
+that's a problem, because different people mean different things by "best".
 
-On the Chinook benchmark the agent produced correct SQL and matching results
-on all 10 clean questions and all 8 adversarial ones. The adversarial set did
-surface one behavioral weakness: on ambiguous questions ("best-selling
-artist", "best employee") the agent silently picks one metric instead of
-stating its assumption or asking — a real risk for a self-serve BI tool.
+## Stuff it can't do well (yet)
 
-## Limitations
+- It pastes the whole database structure into the prompt, so a giant database
+  with hundreds of tables wouldn't fit.
+- The CSV converter stores everything as text, so messy values like `$24.99`
+  would break math on them.
+- The double-check uses the same kind of model, so it can miss the same things
+  the agent misses.
+- It doesn't limit how many rows come back, so a huge result would all get sent
+  at once.
 
-- **Schema is injected in full**, so very large databases (hundreds of tables) won't fit the prompt — those need table selection / retrieval.
-- **`csv_to_db.py` stores every column as TEXT** for simplicity; messy values like `$24.99` or thousands separators would break numeric aggregation.
-- **The self-check reduces but does not eliminate errors** — the judge shares a model family with the agent and can share blind spots.
-- **Large result sets are not capped** — a query returning tens of thousands of rows is sent back in full.
+## Built with
 
-## Stack
-
-Python · Anthropic Messages API (`claude-sonnet-4-6`) · SQLite · tool-calling
+Python, the Anthropic API (Claude), and SQLite.
