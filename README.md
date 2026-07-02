@@ -97,6 +97,10 @@ artist" — by number sold or by money?), it just quietly picks one and answers
 confidently instead of saying which one it chose or asking. For a real BI tool
 that's a problem, because different people mean different things by "best".
 
+The fix I'd try first is a prompt-level guardrail: add a rule to the system
+prompt that when a question could be read more than one way, the agent has to
+say which reading it picked, or ask instead of guessing.
+
 ## Stuff it can't do well (yet)
 
 - It pastes the whole database structure into the prompt, so a giant database
