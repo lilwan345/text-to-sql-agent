@@ -8,16 +8,16 @@ I'm a business student who's comfortable with SQL, so I wanted to see what it
 takes to put an LLM in front of a database instead of writing every query by
 hand.
 
+## Demo
+
+![A real run of the agent answering "Which genre has the most tracks?" on the Chinook sample database](assets/demo.gif)
+
+*A real run on the included Chinook sample database — the agent writes the SQL,
+runs it read-only, and double-checks its own answer.*
+
 ## What it does
 
-```
-You ask: "Which genre has the most tracks?"
-  -> the agent gets the database structure (table and column names)
-  -> Claude writes the SQL and asks to run it
-  -> the code runs it on the database (read-only)
-  -> if it errors, the error goes back to Claude and it tries again
-  -> you get a plain-English answer
-```
+![Workflow: plain-English question, fetch schema, Claude writes SQL, run read-only, self-check, answer, with an error-retry loop](assets/workflow.png)
 
 The part I think is cool: I don't parse the SQL or decide when to stop. Claude
 does that itself by choosing whether to run another query or just answer. That's
