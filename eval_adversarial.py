@@ -1,6 +1,6 @@
 """
-test_adversarial.py — harder, "tricky" questions meant to EXPOSE failure
-modes, not to be answered cleanly. Run after test_accuracy.py.
+eval_adversarial.py — harder, "tricky" questions meant to EXPOSE failure
+modes, not to be answered cleanly. Run after eval_accuracy.py.
 
 These probe: synonym traps (length vs price), temporal filters, ambiguous
 metrics (units vs revenue), NULL handling, empty results, multi-step
@@ -11,7 +11,8 @@ For these, "correct" is not always an exact number — sometimes the right
 behavior is to STATE AN ASSUMPTION or ASK. We print the SQL + answer and
 judge by hand.
 
-Run:  ./.venv/bin/python test_adversarial.py
+Run:  ./.venv/bin/python eval_adversarial.py   (real API calls, like
+eval_accuracy.py)
 """
 
 import anthropic
@@ -21,7 +22,7 @@ TESTS = [
     ("What is the longest track?",
      "trap: length = Milliseconds, NOT price -> 'Occupation / Precipice' (~88 min)"),
     ("Which customer has spent the most money?",
-     "join Customer+Invoice, sum -> Helena Holy, $49.62"),
+     "join Customer+Invoice, sum -> Helena Holý, $49.62"),
     ("How much revenue did we make in 2023?",
      "temporal: parse InvoiceDate year -> $469.58"),
     ("Who is the best-selling artist?",

@@ -2,6 +2,7 @@
 .env
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # generated from sample_sales.csv
 sample_sales.db

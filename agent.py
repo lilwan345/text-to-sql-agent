@@ -32,9 +32,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_PATH = "Chinook.db"
-MODEL = "claude-sonnet-4-6"  # you asked for claude-sonnet
+# The benchmark results in the README were measured on this model. Set
+# SQL_AGENT_MODEL in .env to try another one without editing the code.
+MODEL = os.getenv("SQL_AGENT_MODEL", "claude-sonnet-4-6")
 MAX_STEPS = 6                # safety cap so the retry loop can't run forever
-MAX_RETRIES = 4             # how many times to retry when the server is busy
+MAX_RETRIES = 4              # how many times to retry when the server is busy
+MAX_ROWS = 200               # cap on rows sent back to Claude per query
 
 
 # ---------------------------------------------------------------------------
@@ -128,10 +131,17 @@ def run_sql(db_path: str, query: str) -> str:
     if not rows:
         return "(query ran successfully but returned 0 rows)"
 
-    # Build a simple text table: header line, then one line per row.
+    # Build a simple text table: header line, then one line per row. A huge
+    # result would flood the prompt, so only the first MAX_ROWS rows go back,
+    # with a note telling Claude to aggregate or add a LIMIT instead.
     lines = [" | ".join(column_names)]
-    for row in rows:
+    for row in rows[:MAX_ROWS]:
         lines.append(" | ".join(str(value) for value in row))
+    if len(rows) > MAX_ROWS:
+        lines.append(
+            f"(showing the first {MAX_ROWS} of {len(rows)} rows; "
+            "aggregate or add a LIMIT to see less)"
+        )
     return "\n".join(lines)
 
 
@@ -142,8 +152,8 @@ TOOLS = [
     {
         "name": "run_sql",
         "description": (
-            "Execute a read-only SQL query against the Chinook SQLite "
-            "database and return the result rows. Use standard SQLite syntax."
+            "Execute a read-only SQL query against the SQLite database "
+            "and return the result rows. Use standard SQLite syntax."
         ),
         "input_schema": {
             "type": "object",
@@ -405,12 +415,15 @@ if __name__ == "__main__":
             print(f"Self-check is now {'ON' if verify_on else 'OFF'}.\n")
             continue
 
-        # Run the agent. We wrap it so an API error (or a conversation left in
-        # a weird state) doesn't crash the whole program — you can 'clear' and
-        # keep going.
+        # Run the agent. We wrap it so an API error doesn't crash the whole
+        # program. If a turn fails halfway, we drop the messages it added, so
+        # the memory never holds a tool call without its result (the API
+        # would reject every later question).
+        checkpoint = len(history)
         try:
             answer = ask(question, client, system_prompt, history, verify_on)
             print("\nA:", answer, "\n")
         except Exception as exc:
+            del history[checkpoint:]
             print(f"\n[error] {exc}")
-            print("  If this keeps happening, type 'clear' to reset.\n")
+            print("  That question was dropped from memory; try asking again.\n")
