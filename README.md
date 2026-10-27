@@ -40,7 +40,7 @@ than one way, say which reading you picked, or ask instead of guessing.
 
 ## How it works
 
-![Workflow: plain-English question, fetch schema, Claude writes SQL, run read-only, self-check, answer, with an error-retry loop](assets/workflow.png)
+![Six steps: you ask; the table and column names go into Claude's instructions; Claude writes SQL; it runs read-only and any error goes back to Claude to fix; a second Claude call checks the answer; you get the answer, with a warning if the check found a mismatch](assets/workflow.png)
 
 1. The database schema (every `CREATE TABLE`) goes into the system prompt, so
    Claude writes SQL against real table and column names instead of guessing.
